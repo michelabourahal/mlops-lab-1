@@ -148,4 +148,64 @@ below.
 
 ## Empirical verification
 
-_Filled in after running the Q7/Q8 checks for real — see below._
+Both checks below were run for real, not just reasoned about.
+
+### Q7 check: fresh clone + `dvc pull`
+
+```
+$ git clone https://github.com/michelabourahal/mlops-lab-1.git
+$ cd mlops-lab-1
+$ ls data
+ls: cannot access 'data': No such file or directory
+
+$ dvc pull
+A       data\
+32034 files fetched and 36578 files added
+```
+
+After the pull, `data/` contained all three expected folders with the right structure and
+counts:
+
+| Folder | Files | Notes |
+|---|---|---|
+| `food11_raw` (training+evaluation+validation) | 16,643 | matches the Kaggle source |
+| `food11_processed` | 16,643 | folders named `Bread`, `Dairy product`, …, `Vegetable-Fruit` |
+| `food11_processed_mini` | 3,292 | same category folders, capped at 100/class |
+
+(Note: this first attempt failed with `No space left on device` because the machine's `C:`
+drive was, independently of this lab, completely full at the time. It was re-run successfully
+once disk space was freed — confirming the failure was a host disk-space issue, not a DVC or
+pipeline problem.)
+
+### Q8 check: checkout an older commit, then back to `main`
+
+```
+$ git log --oneline -- data.dvc
+0c4f798 Fix category mapping, restore DagsHub remote, and clean up repo
+883d96d Add Food-11 preprocessing and DVC data
+c5e4a73 Track food11 dataset with DVC
+40f242f Track food11 dataset with DVC
+
+$ git checkout c5e4a73
+$ dvc checkout
+M       data\
+$ ls data
+food11_raw
+$ ls data/food11_processed
+ls: cannot access 'data/food11_processed': No such file or directory
+```
+
+At `c5e4a73` — before the preprocessing script had been run — only `food11_raw` (16,643 files)
+exists; `food11_processed` and `food11_processed_mini` are both absent, exactly as expected.
+
+```
+$ git checkout main
+$ dvc checkout
+M       data\
+$ ls data
+food11_processed  food11_processed_mini  food11_raw
+```
+
+Back on `main`, all three folders returned with their full counts (16,643 / 16,643 / 3,292),
+and `git status` reported a clean working tree — confirming `data.dvc` + `dvc checkout` fully
+round-trips the dataset state across commits.
