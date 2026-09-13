@@ -13,6 +13,22 @@ SPLITS = ("training", "evaluation", "validation")
 TARGET_SIZE = (128, 128)
 MAX_IMAGES_PER_CLASS = 100
 
+# Food-11 raw filenames are prefixed with the numeric class index (e.g. "0_123.jpg"),
+# not the category name. This maps that index to the actual category label.
+CLASS_NAMES = {
+    "0": "Bread",
+    "1": "Dairy product",
+    "2": "Dessert",
+    "3": "Egg",
+    "4": "Fried food",
+    "5": "Meat",
+    "6": "Noodles-Pasta",
+    "7": "Rice",
+    "8": "Seafood",
+    "9": "Soup",
+    "10": "Vegetable-Fruit",
+}
+
 
 def _iter_image_files(path: Path):
     return sorted(
@@ -23,8 +39,9 @@ def _iter_image_files(path: Path):
 
 def _class_name_from_path(path: Path) -> str:
     if path.stem and "_" in path.stem:
-        return path.stem.split("_", 1)[0]
-    return path.stem
+        prefix = path.stem.split("_", 1)[0]
+        return CLASS_NAMES.get(prefix, prefix)
+    return CLASS_NAMES.get(path.stem, path.stem)
 
 
 def _copy_images(source_root: Path, destination_root: Path, max_per_class: int | None = None) -> dict[str, int]:
