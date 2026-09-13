@@ -1,2 +1,4 @@
 [core]
-    remote = origin
+    remote = local_backup
+['remote "local_backup"']
+    url = C:\Users\miche\dvc-storage\mlops-lab-1
