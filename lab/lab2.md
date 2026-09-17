@@ -118,3 +118,37 @@ MLflow splits everything it tracks into two categories, stored in two different 
 In short: `--backend-store-uri` is "where do the facts and numbers go" (a database, queried by
 the UI/API), and `--default-artifact-root` is "where do the actual files go" (a filesystem or
 object store, referenced by path/URI from the metadata but not itself indexed or queryable).
+
+### Q3 — Why shouldn't `mlflow.db` and `mlruns/` be tracked by git, and why not by DVC either?
+
+**Not git:** `mlflow.db` is a SQLite file that gets rewritten on essentially every training
+run — every logged param, every metric step, every tag is a write to the same binary file.
+Git diffs and merges text line-by-line; a binary database has no meaningful diff, so every
+commit would just replace the whole blob, bloating the repo with unreadable history and
+guaranteeing merge conflicts the moment two people (or two runs) touch it. `mlruns/` is the
+same problem for artifacts: it can hold arbitrarily large files (model checkpoints, images)
+that are *generated*, not authored — exactly the category `__pycache__/` and `.venv/` are
+already excluded for elsewhere in this `.gitignore`. Generated, machine-specific, constantly
+mutating local state doesn't belong in source control.
+
+**Not DVC either**, but for a different reason than "it's data": DVC is built to version a
+*fixed, shareable snapshot* — `dvc add data` freezes `data/` at a point in time so anyone can
+`dvc pull` the exact same bytes back. `mlflow.db`/`mlruns/` aren't a snapshot of anything; they
+*are* the live tracking log itself, growing with every run anyone does locally. There's no
+single meaningful "version" of them to pin — you'd need a new `dvc add` after literally every
+run, which defeats the point (and would still hit the same binary-diff-storage problem inside
+DVC's own cache). More fundamentally, MLflow already **is** the versioning/tracking system for
+this kind of data — layering DVC on top of it to snapshot MLflow's own bookkeeping is using the
+wrong tool for a job that's already solved.
+
+There's also concrete proof in this repo that copying these files between machines wouldn't
+even work correctly: the `experiments` row for `Default` in `mlflow.db` stores its artifact
+location as the *absolute local path* `file:///C:/Users/miche/OneDrive/Desktop/mlops-lab-1/mlruns/0`.
+If `mlflow.db` were checked out on a teammate's machine (via git or DVC), every artifact
+lookup would try to resolve that path on *their* filesystem and fail unless their username and
+folder layout happened to match exactly.
+
+The right way to share run results across a team isn't versioning these files at all — it's
+pointing everyone's MLflow client at one shared tracking server (a real database backend
+reachable by everyone, plus a shared artifact store like S3/DagsHub), the same role a remote
+plays for DVC.
