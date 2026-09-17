@@ -188,3 +188,83 @@ Two follow-on details worth noting:
   — creating the experiment only writes a metadata row (in `mlflow.db`) recording where its
   artifacts *will* go; the artifact directory itself is only materialized once an actual run
   under this experiment logs something.
+
+## Training script
+
+`src/food11/train.py` loads `food11_processed`/`food11_processed_mini` via `ImageFolder` +
+`DataLoader`, fine-tunes a pretrained `resnet18` (final layer swapped to 11 classes), and logs
+everything to the tracking server inside `with mlflow.start_run():`. Ran:
+
+```bash
+uv run python ./src/food11/train.py --dataset mini --epochs 5 --lr 0.001 --batch-size 32
+```
+
+This surfaced two real bugs in the model-logging step, both fixed in the script: `mlflow.pytorch.log_model` needed an `input_example` (this MLflow version defaults to the `pt2`
+export format, which traces the model graph and therefore requires a sample input), and
+MLflow's end-of-run emoji banner crashed on Windows' default console encoding (fixed by
+forcing stdout/stderr to UTF-8). Verified run `641a7744dffb4d89a861375310863e7e`
+(`mercurial-ray-845`) under the `food11` experiment: 5 epochs of `train_loss`/`val_loss`/
+`val_accuracy`, final `test_accuracy=0.6022`, and a logged model artifact.
+
+### Q5 — What's the difference between `mlflow.log_param` and `mlflow.log_metric`? Why does `log_metric` take a `step` argument and `log_param` doesn't?
+
+`mlflow.log_param` records a value that's **fixed for the entire run** — a hyperparameter
+chosen before training starts (`lr`, `batch_size`, `dataset`, ...) that never changes once
+training begins. `mlflow.log_metric` records a value that's **expected to evolve during** the
+run — something re-measured at multiple points (`train_loss`, `val_loss`, `val_accuracy` once
+per epoch here).
+
+That difference is exactly why `log_metric` takes `step` and `log_param` doesn't: a metric is a
+*time series* — the same key gets logged multiple times over the course of a run (our script
+calls `mlflow.log_metric("train_loss", train_loss, step=epoch)` once per epoch, five times per
+run), and `step` is what tells MLflow which point in training each value belongs to, so the UI
+can plot it as a chart instead of just overwriting the previous value. A param, by contrast, is
+logged exactly once and stays constant — there's no "which point in time" for a single fixed
+value to attach to, so `log_param` has no `step` and calling it twice for the same key in one
+run is actually an error (params are meant to be immutable per run), whereas calling
+`log_metric` many times for the same key is the normal, expected usage.
+
+### Q6 — Open the run in the mlflow UI. Find the params, the metric charts, and the logged model artifact. Where does the model artifact actually live on disk?
+
+*(Using the MLflow API/filesystem directly here — screenshots of the actual UI to follow.)*
+
+**Params** (`GET /runs/get`, run `641a7744dffb4d89a861375310863e7e`): `dataset=mini`,
+`epochs=5`, `lr=0.001`, `batch_size=32`, `model=resnet18`, `num_classes=11`,
+`train_samples=1100`, `val_samples=1096`, `test_samples=1096` — this is exactly what the UI's
+run page **Parameters** table renders.
+
+**Metric charts**: `GET /metrics/get-history?run_id=...&metric_key=train_loss` returns the full
+time series, one point per epoch, e.g.:
+
+```
+step=0  train_loss=1.8652
+step=1  train_loss=1.0173
+step=2  train_loss=0.6704
+step=3  train_loss=0.4088
+step=4  train_loss=0.3049
+```
+
+This `(step, value)` history for each of `train_loss`, `val_loss`, `val_accuracy` (plus the
+single-point `test_accuracy`) is precisely the data the UI's **Metrics** tab turns into line
+charts — `step` on the x-axis, value on the y-axis, one line per metric key.
+
+**Where the model artifact lives on disk**: the run's own `artifact_uri` is
+`mlruns/1/641a7744.../artifacts`, but that folder stayed empty — in this MLflow version,
+`mlflow.pytorch.log_model` creates a separate first-class **logged model** entity (its own
+`model_id`, linked to the run via metadata rather than nested inside the run's plain artifact
+folder). Its actual files are at:
+
+```
+mlruns/1/models/m-bc15fb3cd7984d39b7c3a4cc25e3f529/artifacts/
+├── MLmodel              # model metadata: flavor, signature, run_id, model_id, size
+├── conda.yaml / python_env.yaml / requirements.txt   # environment for reloading the model
+├── data/model.pt2       # the actual serialized weights (pt2 = torch.export trace format)
+├── input_example.json
+└── serving_input_example.json
+```
+
+The `MLmodel` file itself confirms the link back to this run (`run_id:
+641a7744dffb4d89a861375310863e7e`) and records an auto-inferred signature from the
+`input_example` we passed: input `[-1, 3, 128, 128]` (a batch of RGB 128×128 images), output
+`[-1, 11]` (per-class logits) — this is what the UI's **Artifacts** tab uses to render the
+model's schema without needing to load the weights.
