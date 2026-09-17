@@ -268,3 +268,72 @@ The `MLmodel` file itself confirms the link back to this run (`run_id:
 `input_example` we passed: input `[-1, 3, 128, 128]` (a batch of RGB 128×128 images), output
 `[-1, 11]` (per-class logits) — this is what the UI's **Artifacts** tab uses to render the
 model's schema without needing to load the weights.
+
+## Hyperparameter sweep
+
+Ran the four requested training commands sequentially (`--dataset mini --epochs 5` throughout):
+
+```bash
+uv run python ./src/food11/train.py --dataset mini --epochs 5 --lr 0.01    --batch-size 32
+uv run python ./src/food11/train.py --dataset mini --epochs 5 --lr 0.001   --batch-size 32
+uv run python ./src/food11/train.py --dataset mini --epochs 5 --lr 0.0001  --batch-size 32
+uv run python ./src/food11/train.py --dataset mini --epochs 5 --lr 0.001   --batch-size 64
+```
+
+All four completed cleanly. Pulled the results back from the tracking server via
+`POST /api/2.0/mlflow/runs/search`:
+
+| Run | lr | batch_size | val_accuracy (epoch 5) | test_accuracy |
+|---|---|---|---|---|
+| `skillful-eel-111` | 0.01 | 32 | 0.2190 | 0.2080 |
+| `enthused-dog-925` | 0.001 | 32 | 0.5429 | 0.5265 |
+| `marvelous-stag-139` | 0.0001 | 32 | **0.7126** | **0.7628** |
+| `unique-asp-732` | 0.001 | 64 | 0.5739 | 0.6241 |
+
+*(Using the MLflow API here — screenshots of the actual Compare/parallel-coordinates/runs-table
+UI to follow, per the note earlier in this doc.)*
+
+### Q7 — Which learning rate gave the best `val_accuracy`? Is higher always better?
+
+`lr=0.0001` gave the best `val_accuracy` (0.7126) and by far the best `test_accuracy` (0.7628),
+clearly ahead of `lr=0.001` (0.5429) and `lr=0.01` (0.2190) at the same `batch_size=32`.
+
+**No, higher is not always better** — it's the opposite here: the *lowest* learning rate tested
+won by a wide margin, and the *highest* (`lr=0.01`) performed worst by far, barely above the
+~9% random-guess baseline for 11 classes. The `lr=0.01` run's own training log shows why:
+`val_loss=99.03` after epoch 1 — a massive loss spike characteristic of a learning rate too
+large for fine-tuning a pretrained network, where large weight updates overshoot and destabilize
+the already-good pretrained features instead of gently adapting them.
+
+### Q8 — Using the parallel coordinates plot (`lr`, `batch_size`, `val_accuracy`), what pattern do you see?
+
+The dominant pattern is that **`lr` drives almost all of the spread in `val_accuracy`**, while
+`batch_size` has a much smaller effect. Across the three `batch_size=32` runs, `val_accuracy`
+swings from 0.219 (`lr=0.01`) up to 0.713 (`lr=0.0001`) — a ~0.49 range driven by `lr` alone.
+Isolating `batch_size` instead, by comparing the two `lr=0.001` runs — `batch_size=32`
+(`val_accuracy=0.543`) vs. `batch_size=64` (`val_accuracy=0.574`) — the gap is only ~0.03, an
+order of magnitude smaller than the swing caused by `lr`. So in a parallel coordinates view,
+the lines would fan out dramatically between the `lr` and `val_accuracy` axes (low `lr` → high
+`val_accuracy`, an inverse relationship in this tested range) while staying nearly parallel and
+close together between the `batch_size` and `val_accuracy` axes — `batch_size=64` nudges
+`val_accuracy` up slightly at the same `lr`, but doesn't come close to compensating for a poor
+`lr` choice.
+
+### Q9 — Sort the runs table by `val_accuracy` descending. Which run is the best one? Note its run ID.
+
+Sorted descending by `val_accuracy` (across all runs in the `food11` experiment, including two
+earlier single runs from before this sweep):
+
+| Rank | Run | lr | batch_size | val_accuracy | test_accuracy |
+|---|---|---|---|---|---|
+| 1 | `marvelous-stag-139` | 0.0001 | 32 | **0.7126** | 0.7628 |
+| 2 | `unique-asp-732` | 0.001 | 64 | 0.5739 | 0.6241 |
+| 3 | `enthused-dog-925` | 0.001 | 32 | 0.5429 | 0.5265 |
+| 4 | `mercurial-ray-845` | 0.001 | 32 | 0.5447 | 0.6022 |
+| 5 | `rare-pug-996` | 0.001 | 32 | 0.3923 | 0.4197 |
+| 6 | `skillful-eel-111` | 0.01 | 32 | 0.2190 | 0.2080 |
+
+**Best run: `marvelous-stag-139`**, trained with `lr=0.0001`, `batch_size=32`, `epochs=5`,
+`dataset=mini` — `val_accuracy=0.7126`, `test_accuracy=0.7628`.
+
+**Run ID: `935472bb46f8451f88f473130c6c44ef`**
