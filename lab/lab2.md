@@ -152,3 +152,39 @@ The right way to share run results across a team isn't versioning these files at
 pointing everyone's MLflow client at one shared tracking server (a real database backend
 reachable by everyone, plus a shared artifact store like S3/DagsHub), the same role a remote
 plays for DVC.
+
+## Pointing code at the tracking server
+
+```python
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.set_experiment("food11")
+```
+
+### Q4 — What happens the first time you call `set_experiment` with a name that doesn't exist yet?
+
+Tested directly against the running server:
+
+```
+>>> mlflow.set_experiment("food11")
+INFO mlflow.tracking.fluent: Experiment with name 'food11' does not exist. Creating a new experiment.
+experiment_id: 1
+name: food11
+artifact_location: file:///C:/Users/miche/OneDrive/Desktop/mlops-lab-1/mlruns/1
+lifecycle_stage: active
+```
+
+MLflow doesn't error — it silently **creates the experiment** (auto-increments to the next
+free experiment ID, `1`, since `0` is already `Default`), assigns it a default artifact
+location under the tracking server's artifact root (`mlruns/1`), and returns it, all in one
+call. Checking the UI/API afterward confirms `food11` now shows up alongside `Default`.
+
+Two follow-on details worth noting:
+
+- **It's idempotent.** Calling `set_experiment("food11")` again afterward does *not* log the
+  "does not exist" message or create a second experiment — it just looks it up by name and
+  returns the same `experiment_id: 1`. This is what makes it safe to put at the top of a
+  training script that gets run many times.
+- **Still no `mlruns/` folder on disk** at this point, same as Q2's observation for `Default`
+  — creating the experiment only writes a metadata row (in `mlflow.db`) recording where its
+  artifacts *will* go; the artifact directory itself is only materialized once an actual run
+  under this experiment logs something.
