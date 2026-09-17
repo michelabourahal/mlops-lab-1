@@ -15,8 +15,8 @@ dependencies = [
     "torchvision>=0.29.0",
 ]
 
-[tool.uv]
-package = false
+[project.scripts]
+mlops-lab-1 = "mlops_lab_1:main"
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
@@ -26,3 +26,7 @@ explicit = true
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
 torchvision = { index = "pytorch-cpu" }
+
+[build-system]
+requires = ["uv_build>=0.12.12,<0.13.0"]
+build-backend = "uv_build"
