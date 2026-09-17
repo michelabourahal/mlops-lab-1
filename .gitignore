@@ -3,3 +3,7 @@
 __pycache__/
 *.pyc
 .venv/
+
+mlflow.db
+mlruns/
+mlflow_server.log

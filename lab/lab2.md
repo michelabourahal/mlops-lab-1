@@ -71,3 +71,50 @@ dependency tree these four packages pull in. Notable details:
   (GraphQL API), `opentelemetry-*` (tracing), `gunicorn`, `docker`, `databricks-sdk`, etc.
 - `scikit-learn` brought in `scipy`, `joblib`, `threadpoolctl`.
 - `torch` itself brought in `sympy`, `networkx`, `filelock`, `fsspec`, `mpmath`, `jinja2`.
+
+## Running the local MLflow tracking server
+
+```bash
+uv run mlflow server --host 127.0.0.1 --port 5000 --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns
+```
+
+Left running in the background; `http://127.0.0.1:5000` responds with HTTP 200 and shows a
+single, empty **`Default`** experiment (id `0`), as expected. `mlflow.db`, `mlruns/`, and the
+server log are runtime state, not code — added to `.gitignore` rather than committed, the same
+way `data/` is DVC-managed instead of git-managed.
+
+### Q2 — What is `--backend-store-uri` for? What is `--default-artifact-root` for? What's the difference between the metadata MLflow stores and the artifacts it stores?
+
+MLflow splits everything it tracks into two categories, stored in two different places:
+
+- **Metadata** — structured, queryable facts about experiments and runs: experiment/run IDs,
+  names, start/end times, status, **params**, **metrics** (with their step/timestamp history),
+  tags, and pointers (like a run's artifact location or a registered model version). This is
+  what the UI's tables, charts, and comparison views are built from. `--backend-store-uri`
+  tells the server **where to store this metadata** — here, `sqlite:///mlflow.db`, a local
+  SQLite database file at the repo root. (It also accepts a plain local directory for a
+  simple file-based store, or a real database URI like `postgresql://...`/`mysql://...` for
+  multi-user/production setups.)
+
+  We can see this directly: `mlflow.db` is a real SQLite database (confirmed via
+  `sqlite3`) with tables like `experiments`, `runs`, `params`, `metrics`, `tags`,
+  `registered_models`, etc. Right now `experiments` has exactly one row — `(0, 'Default',
+  'file:///.../mlruns/0')` — created the moment the server started, before any run existed.
+
+- **Artifacts** — arbitrary files a run produces or consumes: model weights/checkpoints,
+  plots, sample predictions, a `requirements.txt` snapshot, the dataset used, etc. These are
+  not queryable rows in a database; they're just files. `--default-artifact-root` tells the
+  server **where to physically store these files** by default — here, `./mlruns`, a local
+  folder. (Just like the backend store, this can point elsewhere — S3, Azure Blob Storage,
+  GCS, DagsHub, etc. — for shared/remote access.)
+
+  The metadata row for the `Default` experiment already records its artifact location as
+  `file:///C:/Users/miche/OneDrive/Desktop/mlops-lab-1/mlruns/0` — but the `mlruns/` folder
+  itself doesn't exist on disk yet, since no run has actually logged an artifact there. This
+  is the clearest illustration of the split: the *metadata* ("this experiment's artifacts will
+  live here") is created eagerly in the database, while the *artifact storage* itself is only
+  materialized lazily, on first actual write.
+
+In short: `--backend-store-uri` is "where do the facts and numbers go" (a database, queried by
+the UI/API), and `--default-artifact-root` is "where do the actual files go" (a filesystem or
+object store, referenced by path/URI from the metadata but not itself indexed or queryable).
