@@ -1,0 +1,15 @@
+.venv/
+data/
+mlruns/
+mlflow.db
+mlflow_server.log
+serve_local.log
+.git/
+.dvc/cache/
+.dvc/tmp/
+__pycache__/
+*.pyc
+screenshots/
+lab1.md
+lab2.md
+lab3.md
