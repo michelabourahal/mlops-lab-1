@@ -377,7 +377,9 @@ inference-1  | ERROR:    Application startup failed. Exiting.
 `-v` also deletes the named volumes declared in the compose file, so mlflow came up on a brand
 new, empty volume — exactly the Q1 situation, just triggered deliberately. Inference then failed
 the same way as on the very first `up` of this lab. Recovering means retraining (or restoring
-a backup of the volume) and re-registering + re-aliasing a model. The volume, not the
+a backup of the volume) and re-registering + re-aliasing a model. To get a working stack again, the
+best configuration was retrained once more (`treasured-boar-863`, `lr=0.0001`, `batch_size=32`,
+`test_accuracy=0.7564`), registered as `food11` version 1 and given the `champion` alias. The volume, not the
 container, is the only copy of the registry here — which is also why Q11's last point matters.
 
 ## Commit

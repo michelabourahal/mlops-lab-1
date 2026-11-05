@@ -184,8 +184,9 @@ lab3.md
 
 ### Q5 — What's the size difference between a naive single-stage image and the multi-stage one? Which layers are biggest?
 
-Built a throwaway single-stage comparison (`pip install uv`, `COPY . .`, `uv sync
---frozen --no-dev` all in one `python:3.11-slim` stage, no separate runtime stage):
+Built a single-stage comparison, kept as [`Dockerfile.naive`](Dockerfile.naive) (`pip install uv`,
+`COPY . .`, `uv sync --frozen --no-dev` all in one `python:3.11-slim` stage, no separate
+runtime stage; `docker build -f Dockerfile.naive -t food11-api:naive .`):
 
 | Image | Size |
 |---|---|

@@ -1,0 +1,19 @@
+# Single-stage comparison image for Lab 3 Q5 — not used by docker-compose.yml.
+# Everything in one stage: uv and the build tooling stay in the final image, and
+# `COPY . .` before `uv sync` means any source edit reinstalls every dependency.
+#   docker build -f Dockerfile.naive -t food11-api:naive .
+FROM python:3.11-slim
+
+RUN pip install --no-cache-dir uv
+
+WORKDIR /app
+
+COPY . .
+RUN uv sync --frozen --no-dev
+
+ENV PATH="/app/.venv/bin:$PATH" \
+    MLFLOW_TRACKING_URI=http://127.0.0.1:5000
+
+EXPOSE 8000
+
+CMD ["uvicorn", "src.food11.serve:app", "--host", "0.0.0.0", "--port", "8000"]
