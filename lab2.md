@@ -178,6 +178,8 @@ free experiment ID, `1`, since `0` is already `Default`), assigns it a default a
 location under the tracking server's artifact root (`mlruns/1`), and returns it, all in one
 call. Checking the UI/API afterward confirms `food11` now shows up alongside `Default`.
 
+![food11 experiment listed next to Default in the MLflow UI](screenshots/lab2-ss/lab2-q4-experiment.png)
+
 Two follow-on details worth noting:
 
 - **It's idempotent.** Calling `set_experiment("food11")` again afterward does *not* log the
@@ -226,12 +228,15 @@ run is actually an error (params are meant to be immutable per run), whereas cal
 
 ### Q6 — Open the run in the mlflow UI. Find the params, the metric charts, and the logged model artifact. Where does the model artifact actually live on disk?
 
-*(Using the MLflow API/filesystem directly here — screenshots of the actual UI to follow.)*
+Run `mercurial-ray-845` (`641a7744dffb4d89a861375310863e7e`) in the MLflow UI, cross-checked
+against the REST API and the filesystem:
 
 **Params** (`GET /runs/get`, run `641a7744dffb4d89a861375310863e7e`): `dataset=mini`,
 `epochs=5`, `lr=0.001`, `batch_size=32`, `model=resnet18`, `num_classes=11`,
 `train_samples=1100`, `val_samples=1096`, `test_samples=1096` — this is exactly what the UI's
 run page **Parameters** table renders.
+
+![Run overview: Metrics and Parameters tables](screenshots/lab2-ss/lab2-q6-params.png)
 
 **Metric charts**: `GET /metrics/get-history?run_id=...&metric_key=train_loss` returns the full
 time series, one point per epoch, e.g.:
@@ -247,6 +252,8 @@ step=4  train_loss=0.3049
 This `(step, value)` history for each of `train_loss`, `val_loss`, `val_accuracy` (plus the
 single-point `test_accuracy`) is precisely the data the UI's **Metrics** tab turns into line
 charts — `step` on the x-axis, value on the y-axis, one line per metric key.
+
+![Model metrics tab: one chart per metric, step on the x-axis](screenshots/lab2-ss/lab2-q6-metrics.png)
 
 **Where the model artifact lives on disk**: the run's own `artifact_uri` is
 `mlruns/1/641a7744.../artifacts`, but that folder stayed empty — in this MLflow version,
@@ -269,6 +276,8 @@ The `MLmodel` file itself confirms the link back to this run (`run_id:
 `[-1, 11]` (per-class logits) — this is what the UI's **Artifacts** tab uses to render the
 model's schema without needing to load the weights.
 
+![Artifacts tab: the logged model's MLmodel, data/, conda.yaml, requirements.txt](screenshots/lab2-ss/lab2-q6-artifacts.png)
+
 ## Hyperparameter sweep
 
 Ran the four requested training commands sequentially (`--dataset mini --epochs 5` throughout):
@@ -290,8 +299,9 @@ All four completed cleanly. Pulled the results back from the tracking server via
 | `marvelous-stag-139` | 0.0001 | 32 | **0.7126** | **0.7628** |
 | `unique-asp-732` | 0.001 | 64 | 0.5739 | 0.6241 |
 
-*(Using the MLflow API here — screenshots of the actual Compare/parallel-coordinates/runs-table
-UI to follow, per the note earlier in this doc.)*
+The same four runs on the MLflow **Compare** page (Run details, Parameters, Metrics):
+
+![Compare page for the four sweep runs](screenshots/lab2-ss/lab2-q7-compare.png)
 
 ### Q7 — Which learning rate gave the best `val_accuracy`? Is higher always better?
 
@@ -319,6 +329,8 @@ close together between the `batch_size` and `val_accuracy` axes — `batch_size=
 `val_accuracy` up slightly at the same `lr`, but doesn't come close to compensating for a poor
 `lr` choice.
 
+![Parallel coordinates plot: batch_size, lr, val_accuracy](screenshots/lab2-ss/lab2-q8-parallel-coords.png)
+
 ### Q9 — Sort the runs table by `val_accuracy` descending. Which run is the best one? Note its run ID.
 
 Sorted descending by `val_accuracy` (across all runs in the `food11` experiment, including two
@@ -333,7 +345,11 @@ earlier single runs from before this sweep):
 | 5 | `rare-pug-996` | 0.001 | 32 | 0.3923 | 0.4197 |
 | 6 | `skillful-eel-111` | 0.01 | 32 | 0.2190 | 0.2080 |
 
+![Runs table sorted by val_accuracy descending](screenshots/lab2-ss/lab2-q9-sorted.png)
+
 **Best run: `marvelous-stag-139`**, trained with `lr=0.0001`, `batch_size=32`, `epochs=5`,
 `dataset=mini` — `val_accuracy=0.7126`, `test_accuracy=0.7628`.
 
 **Run ID: `935472bb46f8451f88f473130c6c44ef`**
+
+![marvelous-stag-139 run overview with its Run ID](screenshots/lab2-ss/lab2-q9-run-detail.png)

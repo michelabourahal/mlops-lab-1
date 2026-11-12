@@ -45,6 +45,13 @@ server issues from Lab 3 come back, plus one naming change:
 `serve.py`, the Lab 3 `Dockerfile` and `.dockerignore` are otherwise unchanged (`lab4.md` was
 added to `.dockerignore` alongside the other lab docs).
 
+> **About the screenshots.** The UI screenshots in this document were captured on a later
+> re-run of the same steps, after the `down -v` in Q10 had wiped the first registry. Version 1
+> in the screenshots is therefore the recovery run `treasured-boar-863` (`lr=0.0001`,
+> `test_accuracy=0.7564`) and version 2 is `melodic-rat-639` (`lr=0.001`, `test_accuracy=0.5146`),
+> while the terminal output quoted in the prose comes from the first pass. The behaviour shown
+> is identical in both passes.
+
 ## The mlflow service — `mlflow/Dockerfile`
 
 ```dockerfile
@@ -79,6 +86,12 @@ first container:  experiments: ['q1-test', 'Default']
 new container:    experiments: ['Default']
                   registered models: []
 ```
+
+![First standalone container: the q1-test experiment exists](screenshots/lab4-ss/lab4-q1-experiment-created.png)
+
+![New container from the same image: the old experiment URL no longer resolves](screenshots/lab4-ss/lab4-q1-no-volume-empty.png)
+
+![New container: only the auto-created Default experiment is left](screenshots/lab4-ss/lab4-q1-no-volume-list.png)
 
 The second container, started from the identical image, has only mlflow's auto-created
 `Default` experiment. The image holds the mlflow *installation*, never the data written at
@@ -129,6 +142,8 @@ inference-1  | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to
 
 (Requests from `train.py` on the host show up as `172.18.0.1` instead — the network's
 gateway, i.e. traffic arriving through the published `5000:5000` port.)
+
+![docker compose logs: inference (172.18.0.3) downloading the champion model from mlflow by service name](screenshots/lab4-ss/lab4-q3-compose-logs.png)
 
 Even before any model existed, the very first `docker compose up` already proved name
 resolution worked: inference exited with `RESOURCE_DOES_NOT_EXIST: Registered Model with
@@ -294,6 +309,8 @@ Matches the compose file exactly: only `mlflow` and `frontend` have a `ports:` s
 Dockerfile, which only *documents* the port the container listens on; it doesn't map it to the
 host.
 
+![docker compose ps: only frontend and mlflow have host port mappings](screenshots/lab4-ss/lab4-q7-compose-ps.png)
+
 ## Promote a new model version and reload
 
 Version 2 was trained with a 10× larger learning rate so its predictions would differ visibly
@@ -308,6 +325,14 @@ champion -> 2
 Version 2 is clearly the worse model (0.5648 vs. 0.7473 test accuracy, in line with Lab 2's
 sweep, where the same `lr=0.001, batch_size=32` config scored 0.5265) and wouldn't be promoted in practice; it's
 used purely to make the switch observable.
+
+Registry state before and after the promotion:
+
+![Version 1 holding the champion alias](screenshots/lab4-ss/lab4-q8-v1-champion.png)
+
+![food11 with two versions, champion now on Version 2](screenshots/lab4-ss/lab4-q8-v2-registered.png)
+
+![Version 2 page with the champion alias](screenshots/lab4-ss/lab4-q8-v2-champion.png)
 
 ### Q8 — Does the prediction come from the new version or the old one? What single command picks up the new version without rebuilding?
 
@@ -330,6 +355,14 @@ docker compose restart inference
 
 after which all three predictions change to version 2's (getting Bread right but Seafood wrong
 — a net-worse model, as its test accuracy said).
+
+The same thing seen through the frontend, with `validation/Seafood/8_0.jpg`:
+
+![Frontend with version 1 as champion: Seafood](screenshots/lab4-ss/lab4-q8-frontend-v1.png)
+
+![Alias moved to version 2, inference not restarted: still version 1's answer](screenshots/lab4-ss/lab4-q8-frontend-before-restart.png)
+
+![After docker compose restart inference: version 2's answer](screenshots/lab4-ss/lab4-q8-frontend-after-restart.png)
 
 ### Q9 — Why does `restart` alone work — no rebuild? What does that say about what's baked into the image versus fetched at startup?
 
@@ -357,6 +390,8 @@ $ docker volume ls        ->  mlops-lab-1_mlflow-data      (still there)
 versions: ['1', '2']  champion -> 2
 Bread -> {"category":"Bread","confidence":0.48971545696258545}    (version 2's answer)
 ```
+
+![Registry after down/up: both versions still there, champion on Version 2](screenshots/lab4-ss/lab4-q10-after-down-up.png)
 
 `down` removes containers and the project network but leaves named volumes alone, so the new
 mlflow container mounted the same `mlflow-data` volume — same SQLite database, same artifacts —

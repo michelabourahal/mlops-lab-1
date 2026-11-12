@@ -29,6 +29,8 @@ Created version '1' of model 'food11'.
 
 **Version 1** — the first version of the newly created `food11` registered model.
 
+![Models tab: food11 with Version 1](screenshots/lab3-ss/lab3-q1-model-versions.png)
+
 A run's logged model artifact (what `mlflow.pytorch.log_model` wrote in Lab 2, at
 `mlruns/1/models/m-.../artifacts/`) is just files tied permanently to that one run — useful
 for reproducing exactly what that run produced, but with no concept of "this is the one
@@ -52,6 +54,8 @@ client.set_registered_model_alias('food11', 'champion', 1)
 
 Verified: `client.get_model_version_by_alias('food11', 'champion')` returns version `1`,
 `run_id=935472bb46f8451f88f473130c6c44ef`.
+
+![Version 1 with the champion alias and Stage (deprecated): None](screenshots/lab3-ss/lab3-q2-champion-alias.png)
 
 ### Q2 — What aliases replaced the old built-in stages? Why version a model separately from the run that produced it, and why is an alias more flexible than a fixed stage name?
 
