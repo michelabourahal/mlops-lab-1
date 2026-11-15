@@ -20,6 +20,7 @@ MODEL_NAME = "food11"
 METRIC = "test_accuracy"
 TEST_SIZE_PARAM = "test_samples"  # logged by train.py: size of the split test_accuracy was measured on
 TRACKING_URI = os.environ.get("MLFLOW_TRACKING_URI", "http://127.0.0.1:5000")
+ALIAS_NOT_FOUND = {"INVALID_PARAMETER_VALUE", "RESOURCE_DOES_NOT_EXIST"}  # error codes mlflow uses for an unset alias
 
 
 def standard_error(p: float, n: int) -> float:
@@ -44,12 +45,21 @@ def main() -> None:
             raise SystemExit(f"run {run_id} has no '{METRIC}' metric")
         return metrics[METRIC]
 
-    candidate = client.get_model_version(MODEL_NAME, args.version)
+    try:
+        candidate = client.get_model_version(MODEL_NAME, args.version)
+    except MlflowException as exc:
+        if exc.error_code != "RESOURCE_DOES_NOT_EXIST":
+            raise
+        raise SystemExit(f"{MODEL_NAME} has no version {args.version}") from None
     acc_candidate = accuracy(candidate.run_id)
 
     try:
         champion = client.get_model_version_by_alias(MODEL_NAME, "champion")
-    except MlflowException:
+    except MlflowException as exc:
+        # Only "this alias is not set" means there is no champion yet. Any other error (server
+        # unreachable, ...) must stop the gate: otherwise it would promote without comparing.
+        if exc.error_code not in ALIAS_NOT_FOUND:
+            raise
         champion = None
 
     tags = {"gate_candidate_accuracy": f"{acc_candidate:.4f}"}
