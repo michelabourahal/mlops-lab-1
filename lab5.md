@@ -500,6 +500,10 @@ default branch, and its bypass list is empty:
   else to approve)
 - **Require status checks to pass**: `test` and `smoke`
 
+![The ruleset protect-main in the repository settings: enforcement status Active, applies to 1 target, main](screenshots/lab5-ss/lab5-q9-ruleset.png)
+
+![The required status checks of the ruleset: test and smoke](screenshots/lab5-ss/lab5-q9-ruleset-checks.png)
+
 On the branch `break-test`, `category_from_filename` was broken on purpose with an
 off-by-one (commit `3165323`):
 
@@ -534,6 +538,11 @@ workflow a second time, for the `pull_request` event (run #7), so every check ap
 | `test` | **failed** at `uv run pytest -q` | **failed** at `uv run pytest -q` |
 | `smoke` | skipped | skipped |
 | `push` | skipped | skipped |
+
+The log of the `test` job in run #7 shows the same failure as on the laptop. The step
+`uv run pytest -q` stops after 10s on `test_category_from_filename`:
+
+![Run #7, job test: the step uv run pytest -q fails on test_category_from_filename, 'Vegetable-Fruit' instead of 'Bread'](screenshots/lab5-ss/lab5-q9-failing-test.png)
 
 ```
 pull request #1, head 3165323:   mergeable = true   mergeable_state = blocked
