@@ -500,6 +500,10 @@ default branch, and its bypass list is empty:
   else to approve)
 - **Require status checks to pass**: `test` and `smoke`
 
+![The ruleset protect-main in the repository settings: enforcement status Active, applies to 1 target, main](screenshots/lab5-ss/lab5-q9-ruleset.png)
+
+![The required status checks of the ruleset: test and smoke](screenshots/lab5-ss/lab5-q9-ruleset-checks.png)
+
 On the branch `break-test`, `category_from_filename` was broken on purpose with an
 off-by-one (commit `3165323`):
 
@@ -535,6 +539,11 @@ workflow a second time, for the `pull_request` event (run #7), so every check ap
 | `smoke` | skipped | skipped |
 | `push` | skipped | skipped |
 
+The log of the `test` job in run #7 shows the same failure as on the laptop. The step
+`uv run pytest -q` stops after 10s on `test_category_from_filename`:
+
+![Run #7, job test: the step uv run pytest -q fails on test_category_from_filename, 'Vegetable-Fruit' instead of 'Bread'](screenshots/lab5-ss/lab5-q9-failing-test.png)
+
 ```
 pull request #1, head 3165323:   mergeable = true   mergeable_state = blocked
 ```
@@ -544,8 +553,22 @@ There is no conflict with `main` (`mergeable = true`), but GitHub reports the pu
 author either: the bypass list of the ruleset is empty, so the rule also applies to the
 owner of the repository.
 
-The fix was pushed to the same branch (`2796b72`, a revert of the broken commit). Both
-events ran again (runs #8 and #9): `test` green in about 20s, `smoke` green in about 90s,
+The page itself in that state, shown on pull request #3: the same broken line pushed once
+more on a second branch (`blocked-demo`, commit `9616a23`, runs #14 and #15), then closed
+without merging.
+
+![Pull request #3: Some checks were not successful, ci / test failing for the push and the pull_request event and marked Required, smoke and push skipped](screenshots/lab5-ss/lab5-q9-pr-blocked.png)
+
+```
+pull request #3, head 9616a23:   mergeable = true   mergeable_state = blocked
+```
+
+"Some checks were not successful": `ci / test` fails for both events and carries the
+**Required** label of the ruleset, as does `ci / smoke`, which is skipped along with
+`ci / push` because `test` did not succeed.
+
+On pull request #1, the fix was pushed to `break-test` (`2796b72`, a revert of the broken
+commit). Both events ran again (runs #8 and #9): `test` green in about 20s, `smoke` green in about 90s,
 and the state of the pull request went from `blocked` to `clean`:
 
 ```
