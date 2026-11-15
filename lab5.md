@@ -553,8 +553,22 @@ There is no conflict with `main` (`mergeable = true`), but GitHub reports the pu
 author either: the bypass list of the ruleset is empty, so the rule also applies to the
 owner of the repository.
 
-The fix was pushed to the same branch (`2796b72`, a revert of the broken commit). Both
-events ran again (runs #8 and #9): `test` green in about 20s, `smoke` green in about 90s,
+The page itself in that state, shown on pull request #3: the same broken line pushed once
+more on a second branch (`blocked-demo`, commit `9616a23`, runs #14 and #15), then closed
+without merging.
+
+![Pull request #3: Some checks were not successful, ci / test failing for the push and the pull_request event and marked Required, smoke and push skipped](screenshots/lab5-ss/lab5-q9-pr-blocked.png)
+
+```
+pull request #3, head 9616a23:   mergeable = true   mergeable_state = blocked
+```
+
+"Some checks were not successful": `ci / test` fails for both events and carries the
+**Required** label of the ruleset, as does `ci / smoke`, which is skipped along with
+`ci / push` because `test` did not succeed.
+
+On pull request #1, the fix was pushed to `break-test` (`2796b72`, a revert of the broken
+commit). Both events ran again (runs #8 and #9): `test` green in about 20s, `smoke` green in about 90s,
 and the state of the pull request went from `blocked` to `clean`:
 
 ```
