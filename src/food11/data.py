@@ -10,24 +10,34 @@ RAW_DATA_DIR = ROOT / "data" / "food11_raw"
 PROCESSED_DIR = ROOT / "data" / "food11_processed"
 PROCESSED_MINI_DIR = ROOT / "data" / "food11_processed_mini"
 SPLITS = ("training", "evaluation", "validation")
-TARGET_SIZE = (128, 128)
+TARGET_SIZE = 128
 MAX_IMAGES_PER_CLASS = 100
 
 # Food-11 raw filenames are prefixed with the numeric class index (e.g. "0_123.jpg"),
-# not the category name. This maps that index to the actual category label.
-CLASS_NAMES = {
-    "0": "Bread",
-    "1": "Dairy product",
-    "2": "Dessert",
-    "3": "Egg",
-    "4": "Fried food",
-    "5": "Meat",
-    "6": "Noodles-Pasta",
-    "7": "Rice",
-    "8": "Seafood",
-    "9": "Soup",
-    "10": "Vegetable-Fruit",
-}
+# not the category name. The position in this list is that index.
+CLASSES = [
+    "Bread",
+    "Dairy product",
+    "Dessert",
+    "Egg",
+    "Fried food",
+    "Meat",
+    "Noodles-Pasta",
+    "Rice",
+    "Seafood",
+    "Soup",
+    "Vegetable-Fruit",
+]
+
+
+def category_from_filename(filename: str) -> str:
+    """'3_120.jpg' -> 'Egg'"""
+    return CLASSES[int(Path(filename).name.split("_", 1)[0])]
+
+
+def resize_image(img: Image.Image, size: int = TARGET_SIZE) -> Image.Image:
+    """Returns an RGB image of size x size."""
+    return img.convert("RGB").resize((size, size))
 
 
 def _iter_image_files(path: Path):
@@ -35,13 +45,6 @@ def _iter_image_files(path: Path):
         [entry for entry in path.iterdir() if entry.is_file() and entry.suffix.lower() in {".jpg", ".jpeg", ".png"}],
         key=lambda p: p.name,
     )
-
-
-def _class_name_from_path(path: Path) -> str:
-    if path.stem and "_" in path.stem:
-        prefix = path.stem.split("_", 1)[0]
-        return CLASS_NAMES.get(prefix, prefix)
-    return CLASS_NAMES.get(path.stem, path.stem)
 
 
 def _copy_images(source_root: Path, destination_root: Path, max_per_class: int | None = None) -> dict[str, int]:
@@ -67,7 +70,7 @@ def _copy_images(source_root: Path, destination_root: Path, max_per_class: int |
                     class_name = entry.name
                     class_to_images.setdefault(class_name, []).append(image_path)
             elif entry.is_file() and entry.suffix.lower() in {".jpg", ".jpeg", ".png"}:
-                class_name = _class_name_from_path(entry)
+                class_name = category_from_filename(entry.name)
                 class_to_images.setdefault(class_name, []).append(entry)
 
         for class_name in sorted(class_to_images):
@@ -79,8 +82,7 @@ def _copy_images(source_root: Path, destination_root: Path, max_per_class: int |
 
             for image_path in selected_files:
                 with Image.open(image_path) as image:
-                    resized = image.convert("RGB").resize(TARGET_SIZE)
-                    resized.save(class_target / image_path.name, format="JPEG")
+                    resize_image(image).save(class_target / image_path.name, format="JPEG")
 
             counts[f"{split}/{class_name}"] = len(selected_files)
 

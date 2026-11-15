@@ -33,3 +33,21 @@ torchvision = { index = "pytorch-cpu" }
 [build-system]
 requires = ["uv_build>=0.12.12,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.2.0",
+    "ruff>=0.17.5",
+]
+
+[tool.pytest.ini_options]
+# tests import the code as `src.food11...`, the same path uvicorn uses in the Dockerfile
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint.isort]
+# the repo's mlflow/ folder (Lab 4 Dockerfile) would otherwise make ruff sort `mlflow` as first-party
+known-third-party = ["mlflow"]

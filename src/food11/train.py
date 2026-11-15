@@ -136,7 +136,7 @@ def main() -> None:
                 f"train_loss={train_loss:.4f} val_loss={val_loss:.4f} val_accuracy={val_accuracy:.4f}"
             )
 
-        test_loss, test_accuracy = run_epoch(model, test_loader, criterion, device)
+        _, test_accuracy = run_epoch(model, test_loader, criterion, device)
         mlflow.log_metric("test_accuracy", test_accuracy)
         print(f"test_accuracy={test_accuracy:.4f}")
 
